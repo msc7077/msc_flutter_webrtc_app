@@ -57,7 +57,7 @@ class SignalingController extends GetxController {
     socket!.on('connect', (_) {
       selfId = socket!.id;
       print('$TAG 🔗 소켓 연결됨: $selfId');
-      _joinRoom('room11');
+      _joinRoom('room10');
     });
 
     // 방에 있는 기존 피어 목록 수신
