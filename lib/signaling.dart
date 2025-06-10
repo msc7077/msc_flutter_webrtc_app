@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:get/get.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -15,14 +16,22 @@ class SignalingController extends GetxController {
   String? selfId;
   String? userName;
 
-  RxBool isEarpiece = false.obs; // 수화기 모드 여부 (예시로 추가)
+  RxBool isEarpiece = false.obs;
+  final isMicOn = true.obs;
 
   // ICE 서버 설정
   final Map<String, dynamic> iceServers = {
     'iceServers': [
-      {'urls': 'stun:stageturn.kidkids.net:3478'},
+      // {'urls': 'stun:stageturn.kidkids.net:3478'},
       {
-        'urls': 'turn:stageturn.kidkids.net:3478',
+        // 'urls': [
+        //   'turn:stageturn.kidkids.net:3478?transport=udp',
+        //   'turn:stageturn.kidkids.net:3478?transport=tcp',
+        // ],
+        'urls': [
+          'turn:stageturn.kidkids.net:5349?transport=udp',
+          'turn:stageturn.kidkids.net:5349?transport=tcp',
+        ],
         'username': 'ekuser',
         'credential': 'kidkids!@#890',
       },
@@ -47,8 +56,8 @@ class SignalingController extends GetxController {
     // 소켓 연결 완료 시
     socket!.on('connect', (_) {
       selfId = socket!.id;
-      print('$TAG ✅ 소켓 연결 완료: $selfId');
-      _joinRoom('room1');
+      print('$TAG 🔗 소켓 연결됨: $selfId');
+      _joinRoom('room11');
     });
 
     // 방에 있는 기존 피어 목록 수신
@@ -67,15 +76,23 @@ class SignalingController extends GetxController {
     // 서버로부터 offer 이벤트가 오면 실행되는 콜백
     // 새 피어가 참여했을 때 Offer를 생성하는 로직
     socket!.on('offer', (data) async {
-      print('$TAG 📢 Offer 수신: $data');
+      print('$TAG 📢 Offer 수신 >>>>>>>>>>>>>>>>>>>>>>>>');
+      print('$TAG 📢 peerConnections : ${peerConnections}');
       _onOffer(data['from'], data['offer']);
     });
 
     // Answer 수신 시 처리
     socket!.on('answer', (data) async {
-      print('$TAG 📢 answer 수신: $data');
+      print('$TAG 📢 answer 수신 <<<<<<<<<<<<<<<<<<<<<<<<<<');
+      print('$TAG 📢 peerConnections : ${peerConnections}');
       final from = data['from'];
       final answer = data['answer'];
+
+      /**
+       * Offer도 안 보냈는데 Answer를 받아버렸을 때
+       * Unable to RTCPeerConnection::setRemoteDescription: peerConnectionSetRemoteDescription(): WEBRTC_SET_REMOTE_DESCRIPTION_ERROR: Failed to set remote answer sdp: Called in wrong state: stable
+       * 재입장할 때 이전 peerConnection이 여전히 살아 있어서, 그 상태로 또 setRemoteDescription(answer)를 하니까 에러 발생
+       */
       await peerConnections[from]?.setRemoteDescription(
         rtc.RTCSessionDescription(answer['sdp'], answer['type']),
       );
@@ -83,7 +100,7 @@ class SignalingController extends GetxController {
 
     // ICE Candidate 수신 시 처리
     socket!.on('ice-candidate', (data) {
-      print('$TAG 📢 ice-candidate 수신: $data');
+      print('$TAG 🧊 ice-candidate 수신: $data');
       final from = data['from'];
       final candidate = data['candidate'];
       if (candidate != null) {
@@ -98,7 +115,7 @@ class SignalingController extends GetxController {
     });
 
     socket!.on('peer-disconnected', (peerId) {
-      print('$TAG ❌ 피어 연결 종료: $peerId');
+      print('$TAG ❌ 접속해있던 피어의 연결 종료: $peerId');
       peerConnections[peerId]?.close();
       peerConnections.remove(peerId);
       dataChannels[peerId]?.close();
@@ -108,22 +125,36 @@ class SignalingController extends GetxController {
 
   // 방 참여 및 마이크 권한 획득
   Future<void> _joinRoom(String roomId) async {
-    localStream = await rtc.navigator.mediaDevices.getUserMedia({
-      'audio': {
-        'echoCancellation': true,
-        'noiseSuppression': true,
-        'autoGainControl': true,
-      },
-      'video': false,
-    });
-    socket!.emit('join', roomId);
+    try {
+      localStream = await rtc.navigator.mediaDevices.getUserMedia({
+        'audio': {
+          'echoCancellation': true,
+          'noiseSuppression': true,
+          'autoGainControl': true,
+        },
+        'video': false,
+      });
+      socket!.emit('join', roomId);
+    } catch (e) {
+      print('$TAG ❌ getUserMedia 실패: $e');
+    }
   }
 
   // Offer 수신 처리
   Future<void> _onOffer(String from, dynamic offer) async {
     // from: 누가 Offer를 보냈는지 (상대방 피어 ID)
     // offer: 상대방이 보낸 WebRTC SDP Offer (sdp, type 포함)
-    print('$TAG ⚙️ onOffer 수신 시 처리 로직 from: $from, offer: $offer');
+    print('$TAG ⚙️ onOffer 수신 시 처리 시작');
+    // print('$TAG ⚙️ onOffer 수신 시 처리 로직 from: $from, offer: $offer');
+
+    // 기존에 해당 피어와의 연결이 있다면 종료하고 새로 연결 생성
+    if (peerConnections.containsKey(from)) {
+      await peerConnections[from]?.close();
+      peerConnections.remove(from);
+      dataChannels[from]?.close();
+      dataChannels.remove(from);
+    }
+
     final pc = await rtc.createPeerConnection(iceServers);
     peerConnections[from] = pc;
 
@@ -136,12 +167,12 @@ class SignalingController extends GetxController {
 
     // 상대방이 보내는 트랙(오디오/비디오)을 수신할 때 호출되는 콜백
     pc.onTrack = (event) {
-      print('$TAG 📡 원격 피어로부터 트랙 수신: $from');
+      print('$TAG 📡 원격 피어로부터 트랙 수신: $event');
     };
 
     pc.onIceCandidate = (rtc.RTCIceCandidate candidate) {
       // ICE Candidate가 생성되면 상대방에게 전송
-      print('$TAG 🌐 ICE Candidate 생성: $candidate');
+      print('$TAG 🌐 ICE Candidate 생성: ${candidate.toMap()}');
       socket!.emit('ice-candidate', {
         'targetId': from,
         'candidate': {
@@ -153,12 +184,32 @@ class SignalingController extends GetxController {
       });
     };
 
+    pc.onIceConnectionState = (state) {
+      print('$TAG 🌐 ICE 연결 상태: $state');
+      if (state == rtc.RTCIceConnectionState.RTCIceConnectionStateFailed) {
+        print('$TAG ❌ ICE 연결 실패: $from');
+      } else if (state ==
+              rtc.RTCIceConnectionState.RTCIceConnectionStateConnected ||
+          state == rtc.RTCIceConnectionState.RTCIceConnectionStateCompleted) {
+        print('$TAG ✅ ICE 연결 성공: $from');
+      }
+    };
+
+    pc.onAddStream = (rtc.MediaStream stream) {
+      print('$TAG 📡 원격 스트림 수신: $stream');
+      // 원격 스트림을 UI에 표시하는 로직 추가 가능
+    };
+
     // 상대방이 만든 RTCDataChannel을 수신했을 때
     // 받은 채널을 dataChannels에 저장
     // 채널에서 메시지가 오면 _handleIncomingMessage()로 처리
     pc.onDataChannel = (rtc.RTCDataChannel channel) {
-      print('🔌 데이터 채널 수신: $channel');
+      print('$TAG 🔌 데이터 채널 수신: $channel');
       dataChannels[from] = channel;
+
+      channel.onDataChannelState = (state) {
+        print('$TAG 📶 채널 상태 변경: $state');
+      };
 
       channel.onMessage = (message) {
         _handleIncomingMessage(message.text);
@@ -186,6 +237,7 @@ class SignalingController extends GetxController {
 
   // Offer 생성 및 전송
   Future<void> _createOffer(String peerId) async {
+    print('$TAG ⚙️ _createOffer 시작');
     final pc = await rtc.createPeerConnection(iceServers);
     peerConnections[peerId] = pc;
 
@@ -227,7 +279,7 @@ class SignalingController extends GetxController {
 
     print('$TAG 👀 dataChannels: $dataChannels');
     dataChannels.forEach((peerId, channel) {
-      print('$TAG 👀 peerId: $peerId');
+      print('$TAG 👀 channel.state: ${channel.state}');
       if (channel.state == rtc.RTCDataChannelState.RTCDataChannelOpen) {
         channel.send(rtc.RTCDataChannelMessage(messageData));
         print('$TAG 📤 $peerId 에게 전송됨: $messageData');
@@ -258,28 +310,17 @@ class SignalingController extends GetxController {
     messages.add(msg);
   }
 
+  void toggleMic() {
+    final audioTrack = localStream?.getAudioTracks().first;
+    print('$TAG 📻 audioTrack: $audioTrack');
+    if (audioTrack != null) {
+      audioTrack.enabled = !audioTrack.enabled;
+      print('🎙️ 마이크 ${audioTrack.enabled ? '켜짐' : '꺼짐'}');
+    }
+  }
+
   Future<void> leaveRoom() async {
-    print('$TAG 👋 방 나가기 및 리소스 정리');
-    print('$TAG 👋 localStream : ${localStream}');
-    // 1. 로컬 스트림 종료
-    if (localStream != null) {
-      for (var track in localStream!.getTracks()) {
-        track.stop();
-      }
-      localStream = null;
-    }
-
-    print('$TAG 👋 peerConnections.values : ${peerConnections.values}');
-    // 2. 모든 피어 연결 닫기
-    for (var pc in peerConnections.values) {
-      await pc.close();
-    }
-    peerConnections.clear();
-
-    print('$TAG 👋 socket : ${socket}');
-    // 4. 소켓 연결 종료 또는 방 나가기 이벤트 emit (필요 시)
-    socket?.emit('peerClose', selfId);
-
-    print('$TAG 👋 방 나가기 및 리소스 정리 완료');
+    print('$TAG 🚪 [1] 방 나가기 시작');
+    socket?.disconnect();
   }
 }

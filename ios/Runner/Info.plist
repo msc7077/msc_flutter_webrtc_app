@@ -51,8 +51,8 @@
 	<string>이 앱은 영상통화를 위해 마이크를 사용합니다.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-	<key>NSAllowsArbitraryLoads</key>
-	<true/>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
 	</dict>
 </dict>
 </plist>
