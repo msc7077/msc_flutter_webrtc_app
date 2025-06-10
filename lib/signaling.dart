@@ -16,7 +16,7 @@ class SignalingController extends GetxController {
   String? selfId;
   String? userName;
 
-  RxBool isEarpiece = false.obs;
+  RxBool isEarpiece = true.obs;
   final isMicOn = true.obs;
 
   // ICE 서버 설정
