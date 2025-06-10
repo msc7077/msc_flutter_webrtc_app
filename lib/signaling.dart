@@ -148,12 +148,12 @@ class SignalingController extends GetxController {
     // print('$TAG ⚙️ onOffer 수신 시 처리 로직 from: $from, offer: $offer');
 
     // 기존에 해당 피어와의 연결이 있다면 종료하고 새로 연결 생성
-    if (peerConnections.containsKey(from)) {
-      await peerConnections[from]?.close();
-      peerConnections.remove(from);
-      dataChannels[from]?.close();
-      dataChannels.remove(from);
-    }
+    // if (peerConnections.containsKey(from)) {
+    //   await peerConnections[from]?.close();
+    //   peerConnections.remove(from);
+    //   dataChannels[from]?.close();
+    //   dataChannels.remove(from);
+    // }
 
     final pc = await rtc.createPeerConnection(iceServers);
     peerConnections[from] = pc;
