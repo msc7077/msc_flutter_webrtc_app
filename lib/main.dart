@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_webrtc_app/screens/name_input_screen.dart';
+import 'package:flutter_webrtc_app/name_input_screen.dart';
 import 'package:get/get.dart';
 
 void main() {

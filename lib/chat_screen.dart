@@ -93,7 +93,6 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     onPressed: () {
                       signaling.toggleMic();
-                      signaling.isMicOn.value = !signaling.isMicOn.value;
                     },
                   ),
                 ),
