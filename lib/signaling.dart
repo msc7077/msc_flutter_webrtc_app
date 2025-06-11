@@ -72,12 +72,13 @@ class SignalingController extends GetxController {
   }
 
   /// 기존 피어 목록 수신 처리 - 각 피어에 Offer 생성 요청
-  void _onPeers(dynamic peerIds) {
+  void _onPeers(dynamic peerIds) async {
     final uniquePeers = Set<String>.from(peerIds);
     print('$TAG 🧑‍🧑‍🧒‍🧒 기존 피어 목록: $uniquePeers');
     for (var peerId in uniquePeers) {
       if (peerId != selfId) {
         _createOffer(peerId);
+        await Future.delayed(Duration(milliseconds: 300));
       }
     }
   }
@@ -113,13 +114,37 @@ class SignalingController extends GetxController {
     final from = data['from'];
     final answer = data['answer'];
     print('$TAG 📢 Answer 수신 from: $from');
+    print('$TAG 📢 Answer 수신 peerConnections: ${peerConnections}');
 
-    try {
-      await peerConnections[from]?.setRemoteDescription(
-        rtc.RTCSessionDescription(answer['sdp'], answer['type']),
+    final pc = peerConnections[from];
+    if (pc == null) {
+      print('$TAG ⚠️ peerConnection 없음: $from');
+      return;
+    }
+
+    // 내가 offer를 보냈을 경우에만 answer를 세팅해야 함
+    if (from != selfId) {
+      final signalingState = pc.signalingState;
+      print('$TAG 🔍 signalingState: $signalingState');
+      print(
+        '$TAG 🔍 rtc.RTCSignalingState.RTCSignalingStateHaveLocalOffer: ${rtc.RTCSignalingState.RTCSignalingStateHaveLocalOffer}',
       );
-    } catch (e) {
-      print('$TAG ❗ Answer 설정 오류 (상태 문제 등): $e');
+
+      if (signalingState ==
+          rtc.RTCSignalingState.RTCSignalingStateHaveLocalOffer) {
+        try {
+          await pc.setRemoteDescription(
+            rtc.RTCSessionDescription(answer['sdp'], answer['type']),
+          );
+          print('$TAG ✅ Answer 설정 완료');
+        } catch (e) {
+          print('$TAG ❗ Answer 설정 오류: $e');
+        }
+      } else {
+        print('$TAG ⚠️ signalingState가 have-local-offer 아님. Answer 설정 생략');
+      }
+    } else {
+      print('$TAG ⚠️ Answer 보낸 사람과 selfId 같음. 내 answer 무시함.');
     }
   }
 
