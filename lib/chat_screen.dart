@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:get/get.dart';
@@ -71,16 +73,22 @@ class _ChatScreenState extends State<ChatScreen> {
                 Obx(
                   () => ElevatedButton(
                     onPressed: () {
-                      if (signaling.isEarpiece.value) {
-                        Helper.selectAudioOutput('speaker');
-                        signaling.isEarpiece.value = false;
-                      } else {
-                        Helper.selectAudioOutput('earpiece');
-                        signaling.isEarpiece.value = true;
+                      if (Platform.isAndroid) {
+                        if (signaling.isSpeakerOn.value) {
+                          // 현재 스피커 ON 상태면 → 스피커 끄고, 상태도 false로
+                          Helper.setSpeakerphoneOn(false);
+                          signaling.isSpeakerOn.value = false;
+                        } else {
+                          // 현재 스피커 OFF 상태면 → 스피커 켜고, 상태도 true로
+                          Helper.setSpeakerphoneOn(true);
+                          signaling.isSpeakerOn.value = true;
+                        }
                       }
                     },
                     child: Text(
-                      signaling.isEarpiece.value ? '🎙️ 스피커로 전환' : '📞 수화기로 전환',
+                      signaling.isSpeakerOn.value
+                          ? '📞 수화기로 전환' // true면 스피커 켜져있으니 스피커로 된 상태 표현
+                          : '🎙️ 스피커로 전환', // false면 수화기 상태
                     ),
                   ),
                 ),

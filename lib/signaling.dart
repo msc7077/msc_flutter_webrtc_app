@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:get/get.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -16,8 +17,17 @@ class SignalingController extends GetxController {
   String? selfId;
   String? userName;
 
-  RxBool isEarpiece = true.obs;
+  RxBool isSpeakerOn = false.obs;
   final isMicOn = true.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    if (Platform.isAndroid) {
+      rtc.Helper.setSpeakerphoneOn(false); // 기본 수화기 모드
+      isSpeakerOn.value = false; // 상태 변수도 맞춰주기
+    }
+  }
 
   /// ICE 서버 설정: TURN 서버 인증 정보 포함
   final Map<String, dynamic> iceServers = {
