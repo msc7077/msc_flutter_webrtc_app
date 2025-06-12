@@ -16,16 +16,40 @@ class SignalingController extends GetxController {
 
   String? selfId;
   String? userName;
+  String roomId = 'room10';
 
   RxBool isSpeakerOn = false.obs;
   final isMicOn = true.obs;
 
   @override
-  void onInit() {
+  void onInit() async {
     super.onInit();
     if (Platform.isAndroid) {
       rtc.Helper.setSpeakerphoneOn(false); // 기본 수화기 모드
       isSpeakerOn.value = false; // 상태 변수도 맞춰주기
+    } else {
+      await rtc.Helper.ensureAudioSession();
+
+      await rtc.Helper.setAppleAudioIOMode(
+        rtc.AppleAudioIOMode.localAndRemote,
+        preferSpeakerOutput: false,
+      );
+    }
+  }
+
+  Future<void> toggleSpeaker(enable) async {
+    print('$TAG 🔁 toggleSpeaker: $enable');
+    if (Platform.isAndroid) {
+      rtc.Helper.setSpeakerphoneOn(enable); // 기본 수화기 모드
+      isSpeakerOn.value = enable; // 상태 변수도 맞춰주기
+    } else {
+      // await rtc.Helper.ensureAudioSession();
+
+      await rtc.Helper.setAppleAudioIOMode(
+        rtc.AppleAudioIOMode.localAndRemote,
+        preferSpeakerOutput: enable,
+      );
+      isSpeakerOn.value = enable; // 상태 변수도 맞춰주기
     }
   }
 
@@ -78,7 +102,7 @@ class SignalingController extends GetxController {
   void _onConnected() {
     selfId = socket!.id;
     print('$TAG 🔗 소켓 연결됨: $selfId');
-    _joinRoom('room10');
+    _joinRoom(roomId);
   }
 
   /// 기존 피어 목록 수신 처리 - 각 피어에 Offer 생성 요청
@@ -96,7 +120,7 @@ class SignalingController extends GetxController {
   /// 새 피어 참여 시 Offer 생성 요청
   void _onNewPeer(dynamic peerId) {
     print('$TAG 🔔 새 피어 참여: $peerId');
-    _createOffer(peerId);
+    // _createOffer(peerId);
   }
 
   /// Offer 수신 처리
@@ -310,7 +334,7 @@ class SignalingController extends GetxController {
   /// 메시지 전체 전송
   void sendMessageToAll(String msg) {
     final messageData = jsonEncode({
-      'sender': selfId ?? 'me',
+      'sender': userName ?? 'me',
       'name': userName ?? 'me',
       'message': msg,
     });

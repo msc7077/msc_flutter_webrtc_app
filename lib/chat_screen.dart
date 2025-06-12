@@ -27,7 +27,7 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: Text('${signaling.userName}의 채팅방')),
+        appBar: AppBar(title: Text('${signaling.roomId}의 채팅방')),
         body: Column(
           children: [
             // ElevatedButton(
@@ -73,16 +73,21 @@ class _ChatScreenState extends State<ChatScreen> {
                 Obx(
                   () => ElevatedButton(
                     onPressed: () {
-                      if (Platform.isAndroid) {
-                        if (signaling.isSpeakerOn.value) {
-                          // 현재 스피커 ON 상태면 → 스피커 끄고, 상태도 false로
-                          Helper.setSpeakerphoneOn(false);
-                          signaling.isSpeakerOn.value = false;
-                        } else {
-                          // 현재 스피커 OFF 상태면 → 스피커 켜고, 상태도 true로
-                          Helper.setSpeakerphoneOn(true);
-                          signaling.isSpeakerOn.value = true;
-                        }
+                      // if (Platform.isAndroid) {
+                      //   if (signaling.isSpeakerOn.value) {
+                      //     // 현재 스피커 ON 상태면 → 스피커 끄고, 상태도 false로
+                      //     Helper.setSpeakerphoneOn(false);
+                      //     signaling.isSpeakerOn.value = false;
+                      //   } else {
+                      //     // 현재 스피커 OFF 상태면 → 스피커 켜고, 상태도 true로
+                      //     Helper.setSpeakerphoneOn(true);
+                      //     signaling.isSpeakerOn.value = true;
+                      //   }
+                      // }
+                      if (signaling.isSpeakerOn.value) {
+                        signaling.toggleSpeaker(false);
+                      } else {
+                        signaling.toggleSpeaker(true);
                       }
                     },
                     child: Text(
@@ -95,9 +100,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 Obx(
                   () => ElevatedButton(
                     child: Text(
+                      textAlign: TextAlign.center,
                       signaling.isMicOn.value
-                          ? '🔇 음소거(내 목소리 전달 안함)'
-                          : '🔊 음소거 해제(내 목속리 전달함)',
+                          ? '🔇 \n 음소거(내 목소리 전달 안함)'
+                          : '🔊 \n 음소거 해제(내 목속리 전달함)',
                     ),
                     onPressed: () {
                       signaling.toggleMic();
