@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
+import 'package:flutter_webrtc_app/chat_screen.dart';
 import 'package:get/get.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
@@ -12,7 +14,7 @@ class SignalingController extends GetxController {
 
   final Map<String, rtc.RTCPeerConnection> peerConnections = {};
   final Map<String, rtc.RTCDataChannel> dataChannels = {};
-  final RxList<String> messages = <String>[].obs;
+  final RxList<ChatMessage> messages = <ChatMessage>[].obs;
 
   String? selfId;
   String? userName;
@@ -120,6 +122,7 @@ class SignalingController extends GetxController {
   /// 새 피어 참여 시 Offer 생성 요청
   void _onNewPeer(dynamic peerId) {
     print('$TAG 🔔 새 피어 참여: $peerId');
+    messages.add(ChatMessage(text: '새로운 참여자가 들어왔습니다.', isSystem: true));
     // _createOffer(peerId);
   }
 
@@ -335,7 +338,6 @@ class SignalingController extends GetxController {
   void sendMessageToAll(String msg) {
     final messageData = jsonEncode({
       'sender': userName ?? 'me',
-      'name': userName ?? 'me',
       'message': msg,
     });
 
@@ -346,7 +348,7 @@ class SignalingController extends GetxController {
       }
     });
 
-    _addMessage('$userName: $msg');
+    _addMessage('$userName: $msg', true);
   }
 
   /// 메시지 수신 처리
@@ -357,7 +359,7 @@ class SignalingController extends GetxController {
       final name = data['name'] ?? sender;
       final msg = data['message'];
       if (sender != selfId) {
-        _addMessage('$name: $msg');
+        _addMessage('$name: $msg', false);
       }
       print('$TAG 📥 메시지 수신 [$name]: $msg');
     } catch (e) {
@@ -366,8 +368,8 @@ class SignalingController extends GetxController {
   }
 
   /// 메시지 리스트에 추가 (GetX RxList 업데이트)
-  void _addMessage(String msg) {
-    messages.add(msg);
+  void _addMessage(String msg, bool isMine) {
+    messages.add(ChatMessage(text: msg, isMine: isMine));
   }
 
   /// 마이크 토글 (켜기/끄기)

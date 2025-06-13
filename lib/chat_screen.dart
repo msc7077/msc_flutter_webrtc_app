@@ -5,6 +5,14 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:get/get.dart';
 import 'signaling.dart';
 
+class ChatMessage {
+  final String text;
+  final bool isSystem; // 새로운 참여자
+  final bool isMine; // 나
+
+  ChatMessage({required this.text, this.isSystem = false, this.isMine = false});
+}
+
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
@@ -15,6 +23,25 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final SignalingController signaling = Get.find(); // GetX로 컨트롤러 가져오기
   final TextEditingController msgController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 메시지 리스트가 바뀔 때마다 자동 스크롤
+    ever(signaling.messages, (_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +55,7 @@ class _ChatScreenState extends State<ChatScreen> {
       },
       child: Scaffold(
         appBar: AppBar(title: Text('${signaling.roomId}의 채팅방')),
+        resizeToAvoidBottomInset: true,
         body: Column(
           children: [
             // ElevatedButton(
@@ -42,11 +70,36 @@ class _ChatScreenState extends State<ChatScreen> {
             Expanded(
               child: Obx(
                 () => ListView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.all(10),
                   itemCount: signaling.messages.length,
                   itemBuilder: (context, index) {
                     final msg = signaling.messages[index];
-                    final isMine = msg.startsWith(signaling.userName! + ':');
+
+                    if (msg.isSystem) {
+                      // 시스템 메시지: 가운데 회색 박스
+                      return Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            msg.text,
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                        ),
+                      );
+                    }
+
+                    final isMine = msg.text.startsWith(
+                      signaling.userName! + ':',
+                    );
                     return Align(
                       alignment:
                           isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -60,7 +113,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: isMine ? Colors.blue[100] : Colors.grey[300],
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(msg),
+                        child: Text(msg.text),
                       ),
                     );
                   },
@@ -90,20 +143,39 @@ class _ChatScreenState extends State<ChatScreen> {
                         signaling.toggleSpeaker(true);
                       }
                     },
-                    child: Text(
-                      signaling.isSpeakerOn.value
-                          ? '📞 수화기로 전환' // true면 스피커 켜져있으니 스피커로 된 상태 표현
-                          : '🎙️ 스피커로 전환', // false면 수화기 상태
+                    child: Column(
+                      children: [
+                        Text(
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 30),
+                          signaling.isSpeakerOn.value
+                              ? '📞' // true면 스피커 켜져있으니 스피커로 된 상태 표현
+                              : '🎙️', // false면 수화기 상태
+                        ),
+                        Text(
+                          textAlign: TextAlign.center,
+                          signaling.isSpeakerOn.value
+                              ? '수화기 모드' // true면 스피커 켜져있으니 스피커로 된 상태 표현
+                              : '스피커 모드', // false면 수화기 상태
+                        ),
+                      ],
                     ),
                   ),
                 ),
                 Obx(
                   () => ElevatedButton(
-                    child: Text(
-                      textAlign: TextAlign.center,
-                      signaling.isMicOn.value
-                          ? '🔇 \n 음소거(내 목소리 전달 안함)'
-                          : '🔊 \n 음소거 해제(내 목속리 전달함)',
+                    child: Column(
+                      children: [
+                        Text(
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 30),
+                          signaling.isMicOn.value ? '🔇' : '🔊',
+                        ),
+                        Text(
+                          textAlign: TextAlign.center,
+                          signaling.isMicOn.value ? '마이크 OFF' : '마이크 ON',
+                        ),
+                      ],
                     ),
                     onPressed: () {
                       signaling.toggleMic();
